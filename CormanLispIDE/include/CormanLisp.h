@@ -37,16 +37,6 @@ public:
 	afx_msg void OnDrawItem( int nIDCtl, LPDRAWITEMSTRUCT lpDrawItemStruct);
 };
 
-class RegistrationDialogBar : public CDialogBar
-{
-public:
-	DECLARE_MESSAGE_MAP()
-	afx_msg void OnPaint();	
-	afx_msg void OnOK();
-	afx_msg void OnUpdateOK(CCmdUI* pCmdUI);
-	afx_msg void OnSize(UINT nType, int cx, int cy);
-};
-
 class LispVarsDialogBar : public CDialogBar
 {
 public:
@@ -120,7 +110,6 @@ public:
 	CFont* getDefaultFont(HDC, long size);
 	CFont* getDefaultUnderlineFont(HDC, long size);
 	CFont* getCourierFont(HDC, long size);
-	void checkRegistration();
 	CDocument* openWorksheet();
 	BOOL OnDDECommand(LPTSTR lpszCommand);
 
@@ -147,7 +136,6 @@ private:
 	char m_urlToOpen[MAX_URL + 1];		// pending document to open
 	bool m_appIsClosing;
 	int m_nUnits;
-	bool m_inRegistrationDialog;
 	CString m_replaceSelection;
 	static const int m_nPrimaryNumUnits;
 	static const int m_nNumUnits;
@@ -164,7 +152,6 @@ public:
 	HANDLE m_event;
 	CString m_userName;
 	CString m_company;
-	bool m_expired;		// true if this program's registration has expired
 	UINT m_timer;
 	HBRUSH m_blackBrush;
 	PreferencesInfo preferences;
@@ -194,7 +181,6 @@ class CMainFrame : public CSMDIFrameWnd
 	CStatusBar  m_StatusBar;
 	CToolBar	m_ToolBar;
 	LispDialogBar m_lispStatusDialogBar;
-	RegistrationDialogBar m_registrationDialogBar;
 	LispVarsDialogBar m_lispVarsDialogBar;
 	int			m_currentLineNo;
 	int			m_currentColumnNo;

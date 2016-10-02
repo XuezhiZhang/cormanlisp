@@ -16,6 +16,9 @@ nmake /s /c
 cd ..\clconsoleapp
 nmake /s /c clean
 nmake /s /c
+cd ..\CormanLispIDE
+nmake /s /c clean
+nmake /s /c
 cd ..
 del cormanlisp.img
 clconsole -execute sys/compile-sys.lisp -image ""

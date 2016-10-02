@@ -17,7 +17,7 @@
 #include <math.h>
 #include <winbase.h>
 
-#include "RegistrationDialog.h"
+#include "Dialogs.h"
 #include "CormanLisp.h"
 #include "LispObjDisplay.h"
 #include "ErrorMessage.h"
@@ -150,7 +150,6 @@ BEGIN_MESSAGE_MAP(CCormanLispApp, CWinApp)
 	ON_COMMAND(ID_HELP_LICENSEAGREEMENT, OnLicenseAgreement)
 	ON_COMMAND(ID_HELP_CREDITS, OnCredits)
 	ON_COMMAND(ID_PREFERENCES, OnEditPreferences)
-	ON_COMMAND(ID_REGISTRATION, checkRegistration)
 	ON_COMMAND(ID_WINDOW_CLOSEALLDOCUMENTS, OnCloseAll)
 END_MESSAGE_MAP()
 
@@ -168,7 +167,6 @@ CCormanLispApp::CCormanLispApp()
 	m_defaultExecDirectory = "";
 	m_defaultExecFilterIndex = 1;
 	m_lastExpiredScreenTime = 0;
-	m_inRegistrationDialog = FALSE;
 	m_replaceSelection = "";
 	m_isActive = TRUE;
 
@@ -369,8 +367,6 @@ BOOL CCormanLispApp::InitInstance()
 	((CFrameWnd*)m_pMainWnd)->LoadFrame(IDR_MAINFRAME);
 	m_pMainWnd->ShowWindow(m_nCmdShow);
 
-	checkRegistration();
-
 	theApp.splashScreen = new CDialog();
 	theApp.splashScreen->Create(IDD_SPLASH);
 	theApp.startupTime = GetTickCount();
@@ -564,29 +560,6 @@ void CCormanLispApp::OnFileNew()
 	pTemplate->OpenDocumentFile(NULL);
 }
 
-void CCormanLispApp::checkRegistration()
-{
-	// avoid recursion
-	if (m_inRegistrationDialog)
-		return;
-	RegistrationInfo info;
-	RegistrationDialog::GetRegistrationInfo(&info);
-	if (!(info.isRegistered))
-	{
-		RegistrationDialog registrationDlg(IDD_REG);
-		m_inRegistrationDialog = TRUE;
-		int result = registrationDlg.DoModal();
-		m_inRegistrationDialog = FALSE;
-		if (result == IDOK)
-		{
-		}
-		else
-		if (result == IDCANCEL)
-		{
-		}
-	}
-}
-
 void CCormanLispApp::OnTimer(UINT)
 {
 	long time = GetTickCount();
@@ -621,19 +594,6 @@ void invalidateHeapDisplay(long generation, CDialogBar* dialogBar, int index)
 VOID CALLBACK TimerProc( HWND hwnd, UINT uMsg, UINT idEvent, DWORD dwTime)
 {
 	unsigned long time = GetTickCount();
-	if (theApp.m_expired &&
-		(time - theApp.m_lastExpiredScreenTime) > (30 * 60 * 1000))	// thirty minutes
-	{
-		if (theApp.m_lastExpiredScreenTime == 0)	// first time
-		{
-			theApp.m_lastExpiredScreenTime = time;
-		}
-		else
-		{
-			theApp.m_lastExpiredScreenTime = time;
-			theApp.m_pMainWnd->PostMessage(WM_COMMAND, ID_REGISTRATION);
-		}
-	}
 
 	if (!theApp.m_isActive)
 		return;
@@ -1088,7 +1048,7 @@ void CCormanLispApp::OnLicenseAgreement()
 	path[index] = 0;	// get rid of file name, just leave the path
 	if (chars > 0)
 		strcat_s(path, sizeof(path), "\\");
-	strcat_s(path, sizeof(path), "documentation\\license-agreement.txt");
+	strcat_s(path, sizeof(path), "LICENSE.txt");
 	NavigateURL(path);
 }
 
@@ -1675,39 +1635,6 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		return -1;      // fail to create
 	}
 
-	RegistrationInfo info;
-
-	RegistrationDialog::GetRegistrationInfo(&info);
-//	info.isRegistered = false;
-
-	if (!m_registrationDialogBar.Create(this,
-	   info.isRegistered ? IDD_VIEW_REG_TOOLBAR : IDD_VIEW_UNREG_TOOLBAR,
-      CBRS_LEFT|CBRS_TOOLTIPS|CBRS_FLYBY,
-	  info.isRegistered ? IDD_VIEW_REG_TOOLBAR : IDD_VIEW_UNREG_TOOLBAR))
-   {
-      TRACE0("Failed to create registration dialog bar\n");
-      return -1;      // Fail to create.
-   }
-
-	if (info.isRegistered)
-	{
-		CWnd* item = m_registrationDialogBar.GetDlgItem(IDC_REG_NAME);
-		CString msg("Registered to: ");
-		msg += info.name;
-		item->SetWindowText(msg);
-  		CDC* cdc = GetDC();
-  		CSize length = cdc->GetTextExtent(msg);
-  		ReleaseDC(cdc);
-  		RECT infoRect;
-  		item->GetClientRect(&infoRect);
-  		RECT dialogRect;
-  		m_registrationDialogBar.GetClientRect(&dialogRect);
-  		if (length.cx > infoRect.right)
-  		{
-  			int diff = length.cx - infoRect.right;
- 		}
-	}
-
 	if (!m_lispVarsDialogBar.Create(this, 
             IDD_VIEW_LISPVARS, WS_CHILD | WS_VISIBLE | CBRS_TOP | CBRS_SIZE_DYNAMIC,
 		ID_VIEW_LISPVARIABLES))
@@ -1719,15 +1646,32 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	//Make the toolbar dockable
 	m_ToolBar.EnableDocking(CBRS_ALIGN_ANY);
 	m_lispStatusDialogBar.EnableDocking(CBRS_ALIGN_ANY);
-	m_registrationDialogBar.EnableDocking(CBRS_ALIGN_ANY);
 	m_lispVarsDialogBar.EnableDocking(CBRS_ALIGN_ANY);
 	EnableDocking(CBRS_ALIGN_ANY);
 	DockControlBar(&m_ToolBar);
 	DockControlBarLeftOf(&m_lispStatusDialogBar, &m_ToolBar);
-	DockControlBarLeftOf(&m_registrationDialogBar, &m_lispStatusDialogBar);
-    DockControlBarLeftOf(&m_lispVarsDialogBar, &m_registrationDialogBar);
+	DockControlBarLeftOf(&m_lispVarsDialogBar, &m_lispStatusDialogBar);
 
-	return CSMDIFrameWnd::OnCreate(lpCreateStruct);
+	int res = CSMDIFrameWnd::OnCreate(lpCreateStruct);
+
+	// set proper size for main toolbar
+	{
+		RECT r;
+		int height = 0;
+
+		memset(&r, 0, sizeof(r));
+		m_lispStatusDialogBar.GetClientRect(&r);
+
+		height = r.bottom - r.top;
+
+		if (height > 0)
+		{
+			m_ToolBar.SetHeight(height);
+			m_ToolBar.RedrawWindow();
+		}
+	}
+
+	return res;
 }
 
 IMPLEMENT_DYNCREATE(CLispDoc, CRichEditDoc)
@@ -4091,28 +4035,6 @@ void LispDialogBar::OnDrawItem(int nIDCtl, LPDRAWITEMSTRUCT lpDrawItemStruct)
 	rect2.left += 1; rect2.top += 1; rect2.right -= 1; rect2.bottom -= 1;
 	dc.FrameRect(&rect2, &brush);
 	dc.FillSolidRect(&rect, RGB(255, 0, 0));
-}
-
-// RegistrationDialogBar
-BEGIN_MESSAGE_MAP(RegistrationDialogBar, CDialogBar)
-	ON_WM_PAINT()
-	ON_COMMAND(IDOK, OnOK)
-	ON_UPDATE_COMMAND_UI(IDOK, OnUpdateOK)
-END_MESSAGE_MAP()
-
-void RegistrationDialogBar::OnPaint()
-{
-	CDialogBar::OnPaint();
-}
-
-void RegistrationDialogBar::OnOK()
-{
-	theApp.NavigateURL("http://www.cormanlisp.com/license_2_0.html");
-}
-
-void RegistrationDialogBar::OnUpdateOK(CCmdUI* pCmdUI)
-{
-	pCmdUI->Enable(TRUE);
 }
 
 void CMainFrame::DockControlBarLeftOf(CControlBar* Bar, CControlBar* LeftOf)

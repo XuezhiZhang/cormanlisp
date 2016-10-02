@@ -19,6 +19,7 @@
 #include "lisp.h"
 #include "lispmath.h"
 #include "CormanLispServer.h"
+#include "UserInfo.h"
 #include "../../zlib/zlib.h"
 
 #pragma warning (disable:4127)				// conditional expression is constant
@@ -4048,42 +4049,21 @@ LispFunction(Containing_Heap)
 	LISP_FUNC_RETURN(ret);
 }
 
-struct RegistrationInfo
-{
-	char name[256];
-	char organization[256];
-	int registrationCode;
-	int timeout;
-	bool isRegistered;
-	int daysRemaining;
-	int version;
-};
-
 LispFunction(Registration_Info)
-{
-	LISP_FUNC_BEGIN(0);
+{	LISP_FUNC_BEGIN(0);
 	HMODULE module = 0;
-	LispObj registered = NIL;
+	LispObj registered = T;
 	LispObj version = NIL;
 	LispObj name = NIL;
 	LispObj organization = NIL;
-	LispObj daysRemaining = NIL;
-	FARPROC proc = 0;
-	RegistrationInfo* info = new RegistrationInfo();
+	LispObj daysRemaining = wrapInteger(0);
+	UserInfo info;
 
-	module = LoadLibrary("license.dll");
-	if (module)
+	// we should fill this values for better compatiblity with older versions
+	if (UserInfo::FillUserInfo(info))
 	{
-		proc = GetProcAddress(module, "GetRegistrationInfo");
-		if (proc)
-		{
-			reinterpret_cast<void (*)(RegistrationInfo*)>(proc)(info);
-			registered 		= info->isRegistered ? T : NIL;
-			version    		= wrapInteger(info->version);
-			name       		= stringNode(info->name);
-			organization	= stringNode(info->organization);			
-			daysRemaining   = wrapInteger(info->daysRemaining);
-		} 			
+		version = wrapInteger(info.GetVersion());
+		name = stringNode(info.GetName());
 	}
 	ThreadQV()[MULTIPLE_RETURN_VALUES_Index] = 
 		list(registered, version, name, organization, daysRemaining, END_LIST);
@@ -4481,6 +4461,9 @@ FunctEntry functTable[] =
     { "consoleUnderflow",           (LispFunc)consoleUnderflow },
     { "garbageCollect",             (LispFunc)garbageCollect },
 
+	// We need this built-in function to support callback in FFI on 64-bit versions of Windows
+	// It seems one can not throw Access Violation Exceptions through the Windows API functions on 64 bit OSes.
+	{ "%SAFECALL",                  (LispFunc)Safecall      },
     // ----------------------------------------------------------
 };
 long sizeFunctTable = sizeof(functTable)/sizeof(FunctEntry);
@@ -4810,3 +4793,31 @@ LispFunction(Lisp_Shutdown)
 	ret = NIL;
 	LISP_FUNC_RETURN(ret);	
 }
+
+
+// We need this to implement %SAFECALL primitive to support callbacks on 64 bit versions of Windows.
+volatile static LispObj doSafecall(LispObj func)
+{
+	LispObj res = NIL;
+	__try
+	{
+		res = LispCall1(Funcall, func);
+	}
+	__except (handleStructuredException(GetExceptionCode(), GetExceptionInformation()))
+	{
+
+	}
+	return res;
+}
+
+LispFunction(Safecall)
+{
+	LISP_FUNC_BEGIN(1);
+	LispObj obj = LISP_ARG(0);
+	checkFunction(obj);
+
+	ret = doSafecall(obj);
+
+	LISP_FUNC_RETURN(ret);
+}
+

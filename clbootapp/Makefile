@@ -17,7 +17,7 @@ default:  ../clbootapp.exe
 		/Fd"./bin/"								\
 		/I./include /I../include				\
 		clbootapp.cpp
- 
+	rc.exe /l 0x409 /fo"bin\clbootapp.res" /i "res" /d "NDEBUG" /d "_AFXDLL" .\clbootapp.rc
 	link.exe /nologo /debug /nodefaultlib 		\
 		/subsystem:windows						\
 		/incremental:no							\
@@ -25,6 +25,7 @@ default:  ../clbootapp.exe
 		/machine:I386							\
 		/out:"../clbootapp.exe"					\
 		/manifest:no							\
+		/nxcompat:no							\
 		bin\clbootapp.obj						\
 		..\CormanLispServer\bin\CormanLispStatic.lib\
 		../zlib/zlib.lib						\
@@ -40,7 +41,7 @@ default:  ../clbootapp.exe
 		oleaut32.lib							\
 		uuid.lib
 
-	mt /outputresource:"../clbootapp.exe;#1" /manifest clbootapp.exe.manifest
+#	mt /outputresource:"../clbootapp.exe;#1" /manifest clbootapp.exe.manifest
 
 clean:
 	if exist bin\*.obj del bin\*.obj

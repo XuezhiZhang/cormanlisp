@@ -18,13 +18,14 @@ default:  ../clconsole.exe
 		/Fd"./bin/"								\
 		/I./include /I../include				\
 		clconsole.cpp
- 
+	rc.exe /l 0x409 /fo"bin\clconsole.res" /i "res" /d "NDEBUG" /d "_AFXDLL" .\clconsole.rc
 	link.exe /nologo /nodefaultlib		        \
 		/subsystem:console						\
 		/incremental:no							\
 		/machine:I386							\
 		/out:"../clconsole.exe"					\
 		/manifest:no							\
+		/nxcompat:no							\
 		bin\clconsole.obj						\
 		kernel32.lib							\
 		user32.lib								\

@@ -32,6 +32,7 @@ default: ../CormanLisp.exe
 		/machine:I386							\
 		/out:"../CormanLisp.exe"				\
 		/manifest:no							\
+		/nxcompat:no							\
 		bin/*.obj								\
 		bin/CormanLisp.res						\
 		kernel32.lib							\
@@ -46,7 +47,7 @@ default: ../CormanLisp.exe
 		oleaut32.lib							\
 		uuid.lib
 
-	mt /outputresource:"..\CormanLisp.exe;#1" /manifest ..\CormanLisp.exe.manifest
+#	mt /outputresource:"..\CormanLisp.exe;#1" /manifest ..\CormanLisp.exe.manifest
 #	del ..\CormanLisp.exe.manifest
 
 clean:
